@@ -1,4 +1,7 @@
 import sys
+from .as_list import *
+from .timer import *
+from .to_list import *
 
 if sys.version_info[:2] >= (3, 8):
     from importlib.metadata import PackageNotFoundError, version  # pragma: no cover
