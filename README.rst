@@ -3,19 +3,14 @@ pyspark-utilities
 =================
 
 
-Add a short description here!
+Some useful PySpark utilities used in model building.
 
 
 Description
 ===========
 
-A longer description of your project goes here...
+This package includes some useful model building utilities.
+It includes:
 
-
-.. _pyscaffold-notes:
-
-Note
-====
-
-This project has been set up using PyScaffold 4.0.1. For details and usage
-information on PyScaffold see https://pyscaffold.org/.
+- Polynomial, Spline and NaturalCubicSpline transformers.
+- an updated `summary` function that can be ran with a groupby statement.

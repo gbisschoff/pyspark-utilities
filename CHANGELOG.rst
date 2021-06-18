@@ -5,6 +5,7 @@ Changelog
 Version 0.1
 ===========
 
-- Feature A added
-- FIX: nasty bug #1729 fixed
-- add your changes here!
+- add Polynomial, Spline and NaturalCubicSpline transformers
+- add summary function
+- add utilities to convert Dense.Vectors to list
+
