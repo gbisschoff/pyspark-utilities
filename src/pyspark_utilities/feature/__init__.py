@@ -2,6 +2,7 @@ import sys
 from .natural_cubic_spline import NaturalCubicSpline
 from .polynomial import Polynomial
 from .spline import Spline
+from .weights_of_evidence import WeightsOfEvidence, WeightsOfEvidenceModel
 
 if sys.version_info[:2] >= (3, 8):
     from importlib.metadata import PackageNotFoundError, version  # pragma: no cover

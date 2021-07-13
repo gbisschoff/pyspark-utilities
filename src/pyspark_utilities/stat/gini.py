@@ -2,7 +2,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql.functions import *
 from pyspark.sql.window import Window
 from functools import reduce
-
+from ..utils import as_list
 
 def gini(df, x, y, groupby = None, **kwargs):
     """
@@ -12,10 +12,6 @@ def gini(df, x, y, groupby = None, **kwargs):
     y: binary outcome variable
     groupby: optional list of columns to group by before calculating summary statistics
     """
-    def as_list(x):
-        if isinstance(x, list): return x
-        if x is None: return []
-        else: return [x]
 
     def _gini(df, x, y, groupby= None, **kwargs):
         return df\
