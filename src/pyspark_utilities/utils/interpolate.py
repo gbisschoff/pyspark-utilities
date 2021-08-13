@@ -1,4 +1,6 @@
 import pyspark.sql.functions as F
+import pyspark.sql.types as Types
+from pyspark.sql.window import Window
 
 def as_list(x):
     if isinstance(x, list): return x
@@ -15,13 +17,12 @@ def resample(df, index, groupby=None, step=1, interval='month'):
             F.max(F.col(index)).cast('date').alias('end'),
         )
         .withColumn(index, F.explode(F.expr('sequence(start, end, interval {step} {interval})'.format(step=step, interval=interval))))
+        .drop('start', 'end')
         .join(df, on=[*as_list(groupby), index], how='left')
     )
 
-def interpolate(df, index, groupby=None, fill_type='forward'):
-    
-    FILL_TYPE = {'forward':'ff', 'backward':'bf', 'interpolate':'in'}
-    
+def interpolate(df, index, cols, groupby=None, fill_type='forward'):
+
     # define interpolation function
     def _interpolate(x, x_prev, x_next, y_prev, y_next, y):
         if x_prev == x_next:
@@ -32,7 +33,7 @@ def interpolate(df, index, groupby=None, fill_type='forward'):
             return y_interpol
 
     # convert function to udf
-    interpol_udf = F.udf(_interpolate, FloatType())   
+    interpol_udf = F.udf(_interpolate, Types.FloatType())
     
     #define forward and back fill windows
     window_ff = Window.partitionBy(*as_list(groupby))\
@@ -45,11 +46,32 @@ def interpolate(df, index, groupby=None, fill_type='forward'):
 
    
     # create the series containing the filled values
-    select_cols = [c for c in df.columns if not in groupby]
-    for c in select_cols:        
-        if fill_type in ('forward', 'interpolate'): df[c+'_ff'] = F.last(df[c], ignorenulls=True).over(window_ff)
-        if fill_type in ('backward', 'interpolate'): df[c+'_bf'] = F.first(df[c], ignorenulls=True).over(window_bf)
-        if fill_type is 'interpolate': df[c+'_in'] = interpol_udf(index, index+'_ff', index+'_bf', c+'_ff', c+'_bf', c)
-            
-    return df.select(*as_list(groupby), *[F.col(c+'_'+FILL_TYPE.get(fill_type)).alias(c) for c in select_cols])
-  
+    for c in as_list(cols):
+        if fill_type == 'forward':
+            df = df.withColumn(c+'_ff', F.last(df[c], ignorenulls=True).over(window_ff))\
+                .drop(c).withColumnRenamed(c + '_ff', c)
+        elif fill_type == 'backward':
+            df = df.withColumn(c+'_bf', F.first(df[c], ignorenulls=True).over(window_bf))\
+                .drop(c).withColumnRenamed(c+'_bf', c)
+        elif fill_type == 'interpolate':
+            df = df.withColumn(c + '_ff', F.last(df[c], ignorenulls=True).over(window_ff))
+            df = df.withColumn(c + '_bf', F.first(df[c], ignorenulls=True).over(window_bf))
+            df = df.withColumn('_nobs', F.row_number().over(window_ff))
+            df = df.withColumn('_nobs_ff', F.last(F.when(df[c].isNotNull(),df['_nobs']), ignorenulls=True).over(window_ff))
+            df = df.withColumn('_nobs_bf', F.first(F.when(df[c].isNotNull(),df['_nobs']), ignorenulls=True).over(window_bf))
+
+            df = df\
+                .withColumn(c+'_in',
+                    interpol_udf(
+                        '_nobs',
+                        '_nobs_ff',
+                        '_nobs_bf',
+                        c+'_ff',
+                        c+'_bf',
+                        c
+                    )
+                )\
+                .drop('_nobs', '_nobs_ff', '_nobs_bf', c, c+'_ff', c+'_bf')\
+                .withColumnRenamed(c+'_in', c)
+
+    return df
